@@ -373,13 +373,18 @@
   })();
 </script>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-  const PRICE  = 1.50;
+  const PRICE = 1.50;
   const OWNER_PIN = 'FFMR5';
-  const SUPABASE_URL = 'YOUR_SUPABASE_URL';
-  const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
-  let supabase = null;
+  
+  // GOOGLE SHEETS CONFIGURATION
+  // 1. Create a Google Sheet with columns: customer_name, qty, total, paid, created_at
+  // 2. Share the sheet and make it publicly readable (or use a service account)
+  // 3. Replace YOUR_SHEET_ID with your actual Google Sheet ID (from the URL)
+  // 4. Replace YOUR_API_KEY with your Google API key (from Google Cloud Console)
+  const SHEET_ID = 'YOUR_SHEET_ID';
+  const API_KEY = 'YOUR_API_KEY';
+  const SHEET_NAME = 'Sheet1'; // Change if your sheet has a different name
 
   let records = [];
   let pending = null;
@@ -415,7 +420,6 @@
       updateTotal();
     });
 
-    // Failsafe: keep total synced even if specific UI events are missed.
     setInterval(syncTotalFromQty, 120);
   }
 
@@ -428,21 +432,10 @@
     updateTotal();
   }
 
-  function hasValidSupabaseConfig() {
-    return SUPABASE_URL && SUPABASE_ANON_KEY &&
-      SUPABASE_URL !== 'YOUR_SUPABASE_URL' &&
-      SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY';
-  }
-
-  function getSupabaseClient() {
-    if (supabase) return supabase;
-    if (!hasValidSupabaseConfig()) return null;
-    try {
-      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-      return supabase;
-    } catch (_err) {
-      return null;
-    }
+  function hasValidGoogleSheetConfig() {
+    return SHEET_ID && API_KEY &&
+      SHEET_ID !== 'YOUR_SHEET_ID' &&
+      API_KEY !== 'YOUR_API_KEY';
   }
 
   function switchTab(name, btn) {
@@ -488,37 +481,58 @@
   }
 
   async function approvePin() {
-    const client = getSupabaseClient();
-    if (!client) {
-      document.getElementById('pin-msg').textContent = 'Set Supabase URL and key in index.html.';
+    if (!hasValidGoogleSheetConfig()) {
+      document.getElementById('pin-msg').textContent = 'Set Google Sheet ID and API Key in index.html.';
       return;
     }
     const entered = document.getElementById('pin-input').value;
     if (entered === OWNER_PIN) {
-      const payload = {
-        customer_name: pending.name,
-        qty: pending.qty,
-        total: pending.total,
-        paid: false
-      };
-      const { data, error } = await client
-        .from('credit_records')
-        .insert(payload)
-        .select()
-        .single();
-      if (error) {
-        document.getElementById('pin-msg').textContent = 'Could not save to database.';
-        return;
+      try {
+        const now = new Date();
+        const dateStr = now.toLocaleString('en-PG', {
+          day: '2-digit', month: 'short', year: 'numeric',
+          hour: '2-digit', minute: '2-digit'
+        });
+        
+        const newRow = [
+          pending.name,
+          pending.qty,
+          pending.total,
+          'NOT PAID',
+          dateStr
+        ];
+
+        const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}!A:E:append?valueInputOption=USER_ENTERED&key=${API_KEY}`;
+        
+        const response = await fetch(appendUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ values: [newRow] })
+        });
+
+        if (!response.ok) {
+          document.getElementById('pin-msg').textContent = 'Could not save to Google Sheet.';
+          return;
+        }
+
+        records.unshift({
+          name: pending.name,
+          qty: pending.qty,
+          total: pending.total,
+          paid: false,
+          date: dateStr
+        });
+
+        document.getElementById('cust-name').value = '';
+        document.getElementById('qty-input').value = 1;
+        updateTotal();
+
+        closePin();
+        showToast();
+        renderTable();
+      } catch (error) {
+        document.getElementById('pin-msg').textContent = 'Error saving record: ' + error.message;
       }
-      records.unshift(normalizeRecord(data));
-
-      document.getElementById('cust-name').value = '';
-      document.getElementById('qty-input').value = 1;
-      updateTotal();
-
-      closePin();
-      showToast();
-      renderTable();
     } else {
       const inp = document.getElementById('pin-input');
       inp.classList.add('pin-err');
@@ -574,39 +588,41 @@
   }
 
   async function loadRecords() {
-    const client = getSupabaseClient();
-    if (!client) {
+    if (!hasValidGoogleSheetConfig()) {
       records = [];
       renderTable();
       return;
     }
-    const { data, error } = await client
-      .from('credit_records')
-      .select('id, customer_name, qty, total, paid, created_at')
-      .order('created_at', { ascending: false });
-    if (error) {
-      showToast('Database connection failed. Check Supabase keys.', true);
-      records = [];
-      renderTable();
-      return;
-    }
-    records = (data || []).map(normalizeRecord);
-    renderTable();
-  }
 
-  function normalizeRecord(row) {
-    const created = row.created_at ? new Date(row.created_at) : new Date();
-    return {
-      id: row.id,
-      name: row.customer_name,
-      qty: Number(row.qty) || 0,
-      total: Number(row.total) || 0,
-      paid: Boolean(row.paid),
-      date: created.toLocaleString('en-PG', {
-        day: '2-digit', month: 'short', year: 'numeric',
-        hour: '2-digit', minute: '2-digit'
-      })
-    };
+    try {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}?key=${API_KEY}`;
+      const response = await fetch(url);
+      
+      if (!response.ok) {
+        showToast('Failed to load records from Google Sheet.', true);
+        records = [];
+        renderTable();
+        return;
+      }
+
+      const data = await response.json();
+      const rows = data.values || [];
+
+      // Skip header row if it exists
+      records = rows.slice(1).map(row => ({
+        name: row[0] || '',
+        qty: Number(row[1]) || 0,
+        total: Number(row[2]) || 0,
+        paid: row[3] === 'PAID',
+        date: row[4] || ''
+      })).reverse(); // Show newest first
+
+      renderTable();
+    } catch (error) {
+      showToast('Error loading records: ' + error.message, true);
+      records = [];
+      renderTable();
+    }
   }
 
   document.getElementById('pin-overlay').addEventListener('click', function(e) {
