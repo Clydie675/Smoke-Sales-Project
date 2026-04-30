@@ -197,30 +197,18 @@
     td.a { color: var(--amber); font-weight: 600; }
     td.d { color: var(--muted); font-size: 11px; }
     td.x { text-align: right; }
-    .del-btn {
-      background: none; border: 1px solid transparent; color: var(--muted);
-      font-family: var(--mono); font-size: 12px; padding: 4px 8px;
-      cursor: pointer; border-radius: 2px; transition: border-color .12s, color .12s;
-    }
-    .del-btn:hover { border-color: var(--red); color: var(--red); }
     .paid-badge {
       font-size: 11px; font-weight: 700; letter-spacing: .4px;
       padding: 3px 8px; border-radius: 99px; display: inline-block;
     }
     .paid-badge.yes { background: #dff4e8; color: #0d7a3a; }
-    .paid-badge.no { background: #fde9e7; color: #b43a2d; }
+    .paid-badge.no  { background: #fde9e7; color: #b43a2d; }
 
     .empty-state { text-align: center; padding: 50px 20px; color: var(--muted); }
     .empty-state .big { font-size: 44px; margin-bottom: 10px; }
     .empty-state p { font-size: 11px; letter-spacing: 1px; }
 
-    .clear-btn {
-      background: none; border: 1px solid var(--border); color: var(--muted);
-      font-family: var(--mono); font-size: 10px; letter-spacing: 1px;
-      text-transform: uppercase; padding: 7px 14px; border-radius: 2px;
-      cursor: pointer; transition: border-color .12s, color .12s;
-    }
-    .clear-btn:hover { border-color: var(--red); color: var(--red); }
+    .loading-state { text-align: center; padding: 30px 20px; color: var(--muted); font-size: 12px; letter-spacing: 2px; }
 
     #toast {
       position: fixed; bottom: 24px; right: 24px;
@@ -229,6 +217,7 @@
       padding: 12px 20px; border-radius: 3px;
       opacity: 0; transform: translateY(10px);
       transition: opacity .25s, transform .25s; z-index: 600;
+      pointer-events: none;
     }
     #toast.show { opacity: 1; transform: none; }
 
@@ -254,10 +243,11 @@
   </header>
 
   <div class="tabs">
-    <button class="tab-btn active" id="tab-btn-add" onclick="switchTab('add',this)">+ New Sale</button>
-    <button class="tab-btn" id="tab-btn-records" onclick="switchTab('records',this)">&#128196; Records</button>
+    <button class="tab-btn active" onclick="switchTab('add', this)">+ New Sale</button>
+    <button class="tab-btn" onclick="switchTab('records', this)">&#128196; Records</button>
   </div>
 
+  <!-- NEW SALE PANEL -->
   <div id="panel-add" class="panel active">
     <div class="card">
       <h2>Fill in Your Details</h2>
@@ -270,9 +260,9 @@
       <div class="field">
         <label>Quantity (sticks)</label>
         <div class="qty-row">
-          <button type="button" class="qty-btn" id="qty-minus-btn" onclick="this.nextElementSibling.stepDown(); clampQty();">-</button>
-          <input type="number" id="qty-input" value="1" min="1" max="9999" oninput="onManualQtyInput()" onchange="clampQty()"/>
-          <button type="button" class="qty-btn" id="qty-plus-btn" onclick="this.previousElementSibling.stepUp(); clampQty();">+</button>
+          <button type="button" class="qty-btn" id="qty-minus-btn">&#8722;</button>
+          <input type="number" id="qty-input" value="1" min="1" max="9999"/>
+          <button type="button" class="qty-btn" id="qty-plus-btn">&#43;</button>
         </div>
       </div>
 
@@ -285,6 +275,7 @@
     </div>
   </div>
 
+  <!-- RECORDS PANEL -->
   <div id="panel-records" class="panel">
     <div class="rec-header">
       <h2>Credit Ledger</h2>
@@ -324,14 +315,16 @@
         </thead>
         <tbody id="records-body"></tbody>
       </table>
-      <div id="empty-state" class="empty-state">
+      <div id="empty-state" class="empty-state hidden" style="display:none;">
         <div class="big">&#128203;</div>
         <p>No records yet. Approve a sale to begin.</p>
       </div>
+      <div id="loading-state" class="loading-state">Loading records...</div>
     </div>
   </div>
 </div>
 
+<!-- PIN OVERLAY -->
 <div id="pin-overlay" class="hidden">
   <div class="pin-box">
     <div class="lock-ico">&#128274;</div>
@@ -344,7 +337,9 @@
       <div class="pi-total" id="pin-total">K 0.00</div>
     </div>
 
-    <input type="password" id="pin-input" placeholder="Enter PIN" maxlength="20" oninput="clearPinErr()" onkeydown="if(event.key==='Enter')approvePin()"/>
+    <input type="password" id="pin-input" placeholder="Enter PIN" maxlength="20"
+      oninput="clearPinErr()"
+      onkeydown="if(event.key==='Enter') approvePin()"/>
     <div id="pin-msg"></div>
 
     <div class="pin-btns">
@@ -357,81 +352,64 @@
 <div id="toast">Sale approved and recorded!</div>
 
 <script>
-  (function forceLiveTotalSync() {
-    const qtyInput = document.getElementById('qty-input');
-    const totalDisplay = document.getElementById('total-display');
-    const unitPrice = 1.5;
-    if (!qtyInput || !totalDisplay) return;
-
-    function draw() {
-      const qty = Math.max(1, parseInt(qtyInput.value, 10) || 1);
-      totalDisplay.textContent = 'K ' + (qty * unitPrice).toFixed(2);
-      window.requestAnimationFrame(draw);
-    }
-
-    draw();
-  })();
-</script>
-
-<script>
-  const PRICE = 1.50;
+  // ============================================================
+  // CONFIGURATION — update API_URL after deploying Apps Script
+  // ============================================================
+  const PRICE     = 1.50;
   const OWNER_PIN = 'FFMR5';
-  
-  // GOOGLE SHEETS CONFIGURATION
-const API_URL = "https://script.google.com/macros/s/AKfycbzscF0bHs0pe5jTCx4AbXQah--sUXxDRnH2Jc4ViyKHiQLjbQLYCVi_r0a2Zsf9_Y8Eyw/exec";
-  
+  const API_URL   = 'https://script.google.com/macros/s/AKfycby54sfiOf7hcJ13KbAZzvtHBSyT6jx-pfjED_Fl0GQyLcleDnAv_1zm4hYjHQxpwHULBQ/exec';
+
+  // ============================================================
+  // STATE
+  // ============================================================
   let records = [];
   let pending = null;
-  let _lastQtySeen = null;
 
-  initQuantityUI();
-  updateTotal();
-  loadRecords();
+  // ============================================================
+  // INIT
+  // ============================================================
+  document.addEventListener('DOMContentLoaded', () => {
+    initQuantityUI();
+    updateTotal();
+    loadRecords();
 
+    document.getElementById('pin-overlay').addEventListener('click', function (e) {
+      if (e.target === this) closePin();
+    });
+  });
+
+  // ============================================================
+  // QUANTITY UI
+  // ============================================================
   function initQuantityUI() {
     const qtyInput = document.getElementById('qty-input');
     const minusBtn = document.getElementById('qty-minus-btn');
-    const plusBtn = document.getElementById('qty-plus-btn');
+    const plusBtn  = document.getElementById('qty-plus-btn');
 
     minusBtn.addEventListener('click', () => {
-      if (qtyInput.disabled) return;
-      qtyInput.value = Math.max(1, (parseInt(qtyInput.value, 10) || 1) - 1);
+      qtyInput.value = Math.max(1, getQty() - 1);
       updateTotal();
     });
 
     plusBtn.addEventListener('click', () => {
-      if (qtyInput.disabled) return;
-      qtyInput.value = Math.max(1, (parseInt(qtyInput.value, 10) || 1) + 1);
+      qtyInput.value = getQty() + 1;
       updateTotal();
     });
 
-    qtyInput.addEventListener('input', () => {
-      updateTotal();
-    });
-
-    qtyInput.addEventListener('change', () => {
-      clampQty();
-      updateTotal();
-    });
-
-    setInterval(syncTotalFromQty, 120);
+    qtyInput.addEventListener('input',  () => updateTotal());
+    qtyInput.addEventListener('change', () => { clampQty(); updateTotal(); });
   }
 
-  function syncTotalFromQty() {
-    const qtyInput = document.getElementById('qty-input');
-    if (!qtyInput) return;
-    const now = String(qtyInput.value);
-    if (now === _lastQtySeen) return;
-    _lastQtySeen = now;
-    updateTotal();
+  function getQty()    { return Math.max(1, parseInt(document.getElementById('qty-input').value) || 1); }
+  function clampQty()  { document.getElementById('qty-input').value = getQty(); }
+  function updateTotal() {
+    document.getElementById('total-display').textContent = 'K ' + (getQty() * PRICE).toFixed(2);
   }
+  function onManualQtyInput() { updateTotal(); }
 
- /* function hasValidGoogleSheetConfig() {
-    return SHEET_ID && API_KEY &&
-      SHEET_ID !== '1WYIC_so_uCa917n_0k5HOTbiY8Q4nFLKBgadPa_uomI' &&
-      API_KEY !== '557267356974-b53qoagt0mhho2skhmar8vpoulmo4pun.apps.googleusercontent.com';
-  }*/
-
+  // ============================================================
+  // TABS
+  // ============================================================
   function switchTab(name, btn) {
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -440,185 +418,207 @@ const API_URL = "https://script.google.com/macros/s/AKfycbzscF0bHs0pe5jTCx4AbXQa
     if (name === 'records') renderTable();
   }
 
-  function getQty() { return Math.max(1, parseInt(document.getElementById('qty-input').value) || 1); }
-  function adjustQty(d) { document.getElementById('qty-input').value = Math.max(1, getQty() + d); updateTotal(); }
-  function setQty(v) { if (!v) return; document.getElementById('qty-input').value = parseInt(v); updateTotal(); }
-  function clampQty() { document.getElementById('qty-input').value = Math.max(1, parseInt(document.getElementById('qty-input').value) || 1); updateTotal(); }
-  function updateTotal() {
-    document.getElementById('total-display').textContent = 'K ' + (getQty() * PRICE).toFixed(2);
-  }
-  function onManualQtyInput() {
-    updateTotal();
-  }
-
+  // ============================================================
+  // REQUEST APPROVAL (open PIN overlay)
+  // ============================================================
   function requestApproval() {
-    const name = document.getElementById('cust-name').value.trim();
     const nameEl = document.getElementById('cust-name');
+    const name   = nameEl.value.trim();
+
     if (!name) {
       nameEl.classList.add('err');
       nameEl.focus();
       setTimeout(() => nameEl.classList.remove('err'), 1400);
       return;
     }
-    const qty = getQty();
+
+    const qty   = getQty();
     const total = +(qty * PRICE).toFixed(2);
-    pending = { name, qty, total };
+    pending     = { name, qty, total };
 
     document.getElementById('pin-cust-name').textContent = name;
-    document.getElementById('pin-detail').textContent = qty + ' stick' + (qty !== 1 ? 's' : '') + ' x K ' + PRICE.toFixed(2);
-    document.getElementById('pin-total').textContent = 'K ' + total.toFixed(2);
-    document.getElementById('pin-input').value = '';
-    document.getElementById('pin-msg').textContent = '';
+    document.getElementById('pin-detail').textContent    = qty + ' stick' + (qty !== 1 ? 's' : '') + ' × K ' + PRICE.toFixed(2);
+    document.getElementById('pin-total').textContent     = 'K ' + total.toFixed(2);
+    document.getElementById('pin-input').value           = '';
+    document.getElementById('pin-msg').textContent       = '';
 
     document.getElementById('pin-overlay').classList.remove('hidden');
     setTimeout(() => document.getElementById('pin-input').focus(), 80);
   }
 
+  // ============================================================
+  // APPROVE — verify PIN then POST to Apps Script
+  // ============================================================
   async function approvePin() {
-    if (!hasValidGoogleSheetConfig()) {
-      document.getElementById('pin-msg').textContent = 'Set Google Sheet ID and API Key in index.html.';
-      return;
-    }
     const entered = document.getElementById('pin-input').value;
-    if (entered === OWNER_PIN) {
-      try {
-        const now = new Date();
-        const dateStr = now.toLocaleString('en-PG', {
-          day: '2-digit', month: 'short', year: 'numeric',
-          hour: '2-digit', minute: '2-digit'
-        });
-        
-        const newRow = [
-          pending.name,
-          pending.qty,
-          pending.total,
-          'NOT PAID',
-          dateStr
-        ];
-        
-        const response = await fetch(appendUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ values: [newRow] })
-        });
-        const res = await fetch(API_URL, {
-  method: "POST",
-  headers: {
-    "Content-Type": "application/json"
-  },
-  body: JSON.stringify({
-    customer_name: pending.name,
-    qty: pending.qty,
-    total: pending.total,
-    paid: false,
-    token: OWNER_PIN
-  })
-});
 
-const result = await res.json();
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          const errorMsg = errorData.error?.message || 'Could not save to Google Sheet.';
-          document.getElementById('pin-msg').textContent = 'Error: ' + errorMsg;
-          return;
-        }
-
-        records.unshift({
-          name: pending.name,
-          qty: pending.qty,
-          total: pending.total,
-          paid: false,
-          date: dateStr
-        });
-
-        document.getElementById('cust-name').value = '';
-        document.getElementById('qty-input').value = 1;
-        updateTotal();
-
-        closePin();
-        showToast();
-        renderTable();
-      } catch (error) {
-        document.getElementById('pin-msg').textContent = 'Error saving record: ' + error.message;
-      }
-    } else {
+    if (entered !== OWNER_PIN) {
       const inp = document.getElementById('pin-input');
       inp.classList.add('pin-err');
-      document.getElementById('pin-msg').textContent = 'Incorrect PIN - try again.';
+      document.getElementById('pin-msg').textContent = 'Incorrect PIN — try again.';
       inp.value = '';
       setTimeout(() => inp.classList.remove('pin-err'), 400);
       inp.focus();
-    }
-  }
-
-/*  async function loadRecords() {
-    if (!hasValidGoogleSheetConfig()) {
-      records = [];
-      renderTable();
       return;
     }
 
+    // Disable button to prevent double-submit
+    const approveBtn = document.querySelector('.pin-approve');
+    approveBtn.disabled    = true;
+    approveBtn.textContent = 'SAVING…';
+
     try {
-      // Fixed: Proper Google Sheets API read endpoint format
-      const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}?key=${API_KEY}`;
-      const response = await fetch(url);
-      */
-  async function loadRecords() {
-  try {
-    const res = await fetch(API_URL);
-    const data = await res.json();
+      const res = await fetch(API_URL, {
+        method:  'POST',
+        headers: { 'Content-Type': 'text/plain' }, // avoids CORS preflight on Apps Script
+        body:    JSON.stringify({
+          action:        'add',
+          customer_name: pending.name,
+          qty:           pending.qty,
+          total:         pending.total,
+          token:         OWNER_PIN
+        })
+      });
 
-    records = (data || []).map(r => ({
-      id: r.id,
-      name: r.customer_name,
-      qty: Number(r.qty),
-      total: Number(r.total),
-      paid: r.paid,
-      date: r.created_at
-    }));
+      const result = await res.json();
 
-    renderTable();
-  } catch (err) {
-    console.log("Load error:", err);
-    records = [];
-    renderTable();
-  }
-}
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        const errorMsg = errorData.error?.message || 'Failed to load records';
-        showToast('Error: ' + errorMsg, true);
-        records = [];
-        renderTable();
+      if (result.error) {
+        document.getElementById('pin-msg').textContent = 'Error: ' + result.error;
+        approveBtn.disabled    = false;
+        approveBtn.textContent = 'APPROVE';
         return;
       }
 
-      const data = await response.json();
-      const rows = data.values || [];
+      // Optimistically add to local list
+      const now     = new Date();
+      const dateStr = now.toLocaleString('en-PG', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      });
 
-      // Skip header row if it exists
-      records = rows.slice(1).map(row => ({
-        name: row[0] || '',
-        qty: Number(row[1]) || 0,
-        total: Number(row[2]) || 0,
-        paid: row[3] === 'PAID',
-        date: row[4] || ''
-      })).reverse(); // Show newest first
+      records.unshift({
+        id:    result.id || Date.now(),
+        name:  pending.name,
+        qty:   pending.qty,
+        total: pending.total,
+        paid:  false,
+        date:  dateStr
+      });
 
+      document.getElementById('cust-name').value  = '';
+      document.getElementById('qty-input').value  = 1;
+      updateTotal();
+      closePin();
+      showToast();
       renderTable();
-    } catch (error) {
-      showToast('Error loading records: ' + error.message, true);
+
+    } catch (err) {
+      document.getElementById('pin-msg').textContent = 'Network error: ' + err.message;
+      approveBtn.disabled    = false;
+      approveBtn.textContent = 'APPROVE';
+    }
+  }
+
+  // ============================================================
+  // LOAD RECORDS from Apps Script (GET)
+  // ============================================================
+  async function loadRecords() {
+    const loadingEl = document.getElementById('loading-state');
+    if (loadingEl) loadingEl.style.display = 'block';
+
+    try {
+      const res  = await fetch(API_URL + '?action=list');
+      const data = await res.json();
+
+      if (data.error) throw new Error(data.error);
+
+      records = (data || []).map(r => ({
+        id:    r.id,
+        name:  r.customer_name,
+        qty:   Number(r.qty),
+        total: Number(r.total),
+        paid:  r.paid === true || r.paid === 'PAID' || r.paid === 'true',
+        date:  r.created_at || r.date || ''
+      }));
+
+    } catch (err) {
+      console.error('Load error:', err);
       records = [];
+    } finally {
+      if (loadingEl) loadingEl.style.display = 'none';
       renderTable();
     }
   }
 
-  document.getElementById('pin-overlay').addEventListener('click', function(e) {
-    if (e.target === this) closePin();
-  });
+  // ============================================================
+  // RENDER TABLE
+  // ============================================================
+  function renderTable() {
+    const query    = (document.getElementById('search-input')?.value || '').toLowerCase();
+    const filtered = records.filter(r => r.name.toLowerCase().includes(query));
+    const tbody    = document.getElementById('records-body');
+    const empty    = document.getElementById('empty-state');
 
+    // Update stats (always from full records, not filtered)
+    const unpaid = records.filter(r => !r.paid);
+    document.getElementById('stat-count').textContent  = records.length;
+    document.getElementById('stat-sticks').textContent = records.reduce((s, r) => s + r.qty, 0);
+    document.getElementById('stat-total').textContent  = unpaid.reduce((s, r) => s + r.total, 0).toFixed(2);
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+      return;
+    }
+
+    empty.style.display = 'none';
+    tbody.innerHTML = filtered.map((r, i) => `
+      <tr>
+        <td class="q">${i + 1}</td>
+        <td class="n">${escHtml(r.name)}</td>
+        <td class="q">${r.qty}</td>
+        <td class="a">K ${Number(r.total).toFixed(2)}</td>
+        <td class="d">${escHtml(r.date)}</td>
+        <td><span class="paid-badge ${r.paid ? 'yes' : 'no'}">${r.paid ? 'PAID' : 'NOT PAID'}</span></td>
+      </tr>
+    `).join('');
+  }
+
+  // ============================================================
+  // PIN OVERLAY HELPERS
+  // ============================================================
+  function closePin() {
+    document.getElementById('pin-overlay').classList.add('hidden');
+    const approveBtn = document.querySelector('.pin-approve');
+    if (approveBtn) { approveBtn.disabled = false; approveBtn.textContent = 'APPROVE'; }
+    pending = null;
+  }
+
+  function clearPinErr() {
+    document.getElementById('pin-msg').textContent = '';
+    document.getElementById('pin-input').classList.remove('pin-err');
+  }
+
+  // ============================================================
+  // TOAST
+  // ============================================================
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg || 'Sale approved and recorded!';
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 3000);
+  }
+
+  // ============================================================
+  // UTIL
+  // ============================================================
+  function escHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
 </script>
 </body>
 </html>
