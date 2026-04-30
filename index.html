@@ -379,11 +379,14 @@
   
   // GOOGLE SHEETS CONFIGURATION
   // 1. Create a Google Sheet with columns: customer_name, qty, total, paid, created_at
-  // 2. Share the sheet and make it publicly readable (or use a service account)
-  // 3. Replace YOUR_SHEET_ID with your actual Google Sheet ID (from the URL)
-  // 4. Replace YOUR_API_KEY with your Google API key (from Google Cloud Console)
-  const SHEET_ID = '1WYIC_so_uCa917n_0k5HOTbiY8Q4nFLKBgadPa_uomI';
-  const API_KEY = 'https://script.google.com/macros/s/AKfycbzscF0bHs0pe5jTCx4AbXQah--sUXxDRnH2Jc4ViyKHiQLjbQLYCVi_r0a2Zsf9_Y8Eyw/exec';
+  // 2. Go to https://console.cloud.google.com and create a new project
+  // 3. Enable Google Sheets API in the Google Cloud Console
+  // 4. Create an API Key (not OAuth) in the Credentials section
+  // 5. Replace YOUR_SHEET_ID with your actual Google Sheet ID (from the URL: docs.google.com/spreadsheets/d/{SHEET_ID})
+  // 6. Replace YOUR_API_KEY with your actual Google API key
+  // 7. Share your Google Sheet with "Anyone with the link can view" or make it public
+  const SHEET_ID = 'YOUR_SHEET_ID';
+  const API_KEY = 'YOUR_API_KEY';
   const SHEET_NAME = 'credit_records'; // Change if your sheet has a different name
 
   let records = [];
@@ -434,8 +437,8 @@
 
   function hasValidGoogleSheetConfig() {
     return SHEET_ID && API_KEY &&
-      SHEET_ID !== '1WYIC_so_uCa917n_0k5HOTbiY8Q4nFLKBgadPa_uomI' &&
-      API_KEY !== 'script.google.com/macros/s/AKfycbzscF0bHs0pe5jTCx4AbXQah--sUXxDRnH2Jc4ViyKHiQLjbQLYCVi_r0a2Zsf9_Y8Eyw/exec';
+      SHEET_ID !== 'YOUR_SHEET_ID' &&
+      API_KEY !== 'YOUR_API_KEY';
   }
 
   function switchTab(name, btn) {
@@ -502,7 +505,8 @@
           dateStr
         ];
 
-        const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}!A:E:append?valueInputOption=USER_ENTERED&key=${API_KEY}`;
+        // Fixed: Proper Google Sheets API append endpoint format
+        const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}!A1:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS&key=${API_KEY}`;
         
         const response = await fetch(appendUrl, {
           method: 'POST',
@@ -511,7 +515,9 @@
         });
 
         if (!response.ok) {
-          document.getElementById('pin-msg').textContent = 'Could not save to Google Sheet.';
+          const errorData = await response.json();
+          const errorMsg = errorData.error?.message || 'Could not save to Google Sheet.';
+          document.getElementById('pin-msg').textContent = 'Error: ' + errorMsg;
           return;
         }
 
@@ -595,11 +601,14 @@
     }
 
     try {
+      // Fixed: Proper Google Sheets API read endpoint format
       const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}?key=${API_KEY}`;
       const response = await fetch(url);
       
       if (!response.ok) {
-        showToast('Failed to load records from Google Sheet.', true);
+        const errorData = await response.json();
+        const errorMsg = errorData.error?.message || 'Failed to load records';
+        showToast('Error: ' + errorMsg, true);
         records = [];
         renderTable();
         return;
