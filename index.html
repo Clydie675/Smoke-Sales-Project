@@ -474,7 +474,7 @@ const API_URL = "https://script.google.com/macros/s/AKfycbzscF0bHs0pe5jTCx4AbXQa
     setTimeout(() => document.getElementById('pin-input').focus(), 80);
   }
 
-  async function approvePin() {
+  /*async function approvePin() {
     if (!hasValidGoogleSheetConfig()) {
       document.getElementById('pin-msg').textContent = 'Set Google Sheet ID and API Key in index.html.';
       return;
@@ -497,13 +497,13 @@ const API_URL = "https://script.google.com/macros/s/AKfycbzscF0bHs0pe5jTCx4AbXQa
         ];
 
         // Fixed: Proper Google Sheets API append endpoint format
-       /*const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}!A1:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS&key=${API_KEY}`;
+       const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}!A1:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS&key=${API_KEY}`;
         
         const response = await fetch(appendUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ values: [newRow] })
-        });*/
+        });
         const res = await fetch(API_URL, {
   method: "POST",
   headers: {
@@ -553,7 +553,63 @@ const result = await res.json();
       setTimeout(() => inp.classList.remove('pin-err'), 400);
       inp.focus();
     }
+  }*/
+
+  async function approvePin() {
+  const entered = document.getElementById('pin-input').value;
+
+  if (entered !== OWNER_PIN) {
+    const inp = document.getElementById('pin-input');
+    inp.classList.add('pin-err');
+    document.getElementById('pin-msg').textContent = 'Incorrect PIN - try again.';
+    inp.value = '';
+    setTimeout(() => inp.classList.remove('pin-err'), 400);
+    inp.focus();
+    return;
   }
+
+  if (!pending) return;
+
+  try {
+    const res = await fetch(API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        customer_name: pending.name,
+        qty: pending.qty,
+        total: pending.total,
+        paid: false,
+        token: OWNER_PIN
+      })
+    });
+
+    const result = await res.json();
+
+    records.unshift({
+      id: result.id || Date.now(),
+      name: pending.name,
+      qty: pending.qty,
+      total: pending.total,
+      paid: false,
+      date: new Date().toLocaleString()
+    });
+
+    closePin();
+    showToast();
+    renderTable();
+
+    document.getElementById("cust-name").value = "";
+    document.getElementById("qty-input").value = 1;
+    updateTotal();
+
+  } catch (err) {
+    console.log("Save error:", err);
+    document.getElementById('pin-msg').textContent =
+      'Failed to save (check Apps Script deployment)';
+  }
+}
 
   function closePin() {
     document.getElementById('pin-overlay').classList.add('hidden');
