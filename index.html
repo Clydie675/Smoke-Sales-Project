@@ -378,17 +378,8 @@
   const OWNER_PIN = 'FFMR5';
   
   // GOOGLE SHEETS CONFIGURATION
-  // 1. Create a Google Sheet with columns: customer_name, qty, total, paid, created_at
-  // 2. Go to https://console.cloud.google.com and create a new project
-  // 3. Enable Google Sheets API in the Google Cloud Console
-  // 4. Create an API Key (not OAuth) in the Credentials section
-  // 5. Replace YOUR_SHEET_ID with your actual Google Sheet ID (from the URL: docs.google.com/spreadsheets/d/{SHEET_ID})
-  // 6. Replace YOUR_API_KEY with your actual Google API key
-  // 7. Share your Google Sheet with "Anyone with the link can view" or make it public
-  const SHEET_ID = '1WYIC_so_uCa917n_0k5HOTbiY8Q4nFLKBgadPa_uomI';
-  const API_KEY = '557267356974-b53qoagt0mhho2skhmar8vpoulmo4pun.apps.googleusercontent.com';
-  const SHEET_NAME = 'credit_records'; // Change if your sheet has a different name
-
+const API_URL = "https://script.google.com/macros/s/AKfycbzscF0bHs0pe5jTCx4AbXQah--sUXxDRnH2Jc4ViyKHiQLjbQLYCVi_r0a2Zsf9_Y8Eyw/exec";
+  
   let records = [];
   let pending = null;
   let _lastQtySeen = null;
@@ -435,11 +426,11 @@
     updateTotal();
   }
 
-  function hasValidGoogleSheetConfig() {
+ /* function hasValidGoogleSheetConfig() {
     return SHEET_ID && API_KEY &&
       SHEET_ID !== '1WYIC_so_uCa917n_0k5HOTbiY8Q4nFLKBgadPa_uomI' &&
       API_KEY !== '557267356974-b53qoagt0mhho2skhmar8vpoulmo4pun.apps.googleusercontent.com';
-  }
+  }*/
 
   function switchTab(name, btn) {
     document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
@@ -506,13 +497,28 @@
         ];
 
         // Fixed: Proper Google Sheets API append endpoint format
-        const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}!A1:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS&key=${API_KEY}`;
+       /*const appendUrl = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}!A1:append?valueInputOption=USER_ENTERED&insertDataOption=INSERT_ROWS&key=${API_KEY}`;
         
         const response = await fetch(appendUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ values: [newRow] })
-        });
+        });*/
+        const res = await fetch(API_URL, {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify({
+    customer_name: pending.name,
+    qty: pending.qty,
+    total: pending.total,
+    paid: false,
+    token: OWNER_PIN
+  })
+});
+
+const result = await res.json();
 
         if (!response.ok) {
           const errorData = await response.json();
@@ -593,7 +599,7 @@
     _tt = setTimeout(() => t.classList.remove('show'), 2400);
   }
 
-  async function loadRecords() {
+/*  async function loadRecords() {
     if (!hasValidGoogleSheetConfig()) {
       records = [];
       renderTable();
@@ -604,6 +610,28 @@
       // Fixed: Proper Google Sheets API read endpoint format
       const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${SHEET_NAME}?key=${API_KEY}`;
       const response = await fetch(url);
+      */
+  async function loadRecords() {
+  try {
+    const res = await fetch(API_URL);
+    const data = await res.json();
+
+    records = (data || []).map(r => ({
+      id: r.id,
+      name: r.customer_name,
+      qty: Number(r.qty),
+      total: Number(r.total),
+      paid: r.paid,
+      date: r.created_at
+    }));
+
+    renderTable();
+  } catch (err) {
+    console.log("Load error:", err);
+    records = [];
+    renderTable();
+  }
+}
       
       if (!response.ok) {
         const errorData = await response.json();
