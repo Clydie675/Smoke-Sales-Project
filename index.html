@@ -474,7 +474,7 @@ const API_URL = "https://script.google.com/macros/s/AKfycbzscF0bHs0pe5jTCx4AbXQa
     setTimeout(() => document.getElementById('pin-input').focus(), 80);
   }
 
-  /*async function approvePin() {
+  async function approvePin() {
     if (!hasValidGoogleSheetConfig()) {
       document.getElementById('pin-msg').textContent = 'Set Google Sheet ID and API Key in index.html.';
       return;
@@ -550,103 +550,6 @@ const result = await res.json();
       setTimeout(() => inp.classList.remove('pin-err'), 400);
       inp.focus();
     }
-  }*/
-async function approvePin() {
-  const entered = document.getElementById('pin-input').value;
-
-  if (entered !== OWNER_PIN) {
-    const inp = document.getElementById('pin-input');
-    inp.classList.add('pin-err');
-    document.getElementById('pin-msg').textContent = 'Incorrect PIN - try again.';
-    inp.value = '';
-    setTimeout(() => inp.classList.remove('pin-err'), 400);
-    inp.focus();
-    return;
-  }
-
-  if (!pending) return;
-
-  try {
-    const res = await fetch(API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        customer_name: pending.name,
-        qty: pending.qty,
-        total: pending.total,
-        paid: false,
-        token: OWNER_PIN
-      })
-    });
-
-    const result = await res.json();
-
-    records.unshift({
-      id: result.id || Date.now(),
-      name: pending.name,
-      qty: pending.qty,
-      total: pending.total,
-      paid: false,
-      date: new Date().toLocaleString()
-    });
-
-    document.getElementById('cust-name').value = '';
-    document.getElementById('qty-input').value = 1;
-    updateTotal();
-
-    closePin();
-    showToast();
-    renderTable();
-
-  } catch (error) {
-    document.getElementById('pin-msg').textContent =
-      'Failed to save (check Apps Script deployment)';
-  }
-}
-  function closePin() {
-    document.getElementById('pin-overlay').classList.add('hidden');
-    pending = null;
-  }
-  function clearPinErr() { document.getElementById('pin-msg').textContent = ''; }
-
-  function renderTable() {
-    const q = (document.getElementById('search-input')?.value || '').toLowerCase();
-    const filtered = q ? records.filter(r => r.name.toLowerCase().includes(q)) : records;
-    const tbody = document.getElementById('records-body');
-    const empty = document.getElementById('empty-state');
-
-    if (filtered.length === 0) {
-      tbody.innerHTML = '';
-      empty.style.display = 'block';
-    } else {
-      empty.style.display = 'none';
-      tbody.innerHTML = filtered.map((r, i) => `
-        <tr>
-          <td class="d">${filtered.length - i}</td>
-          <td class="n">${esc(r.name)}</td>
-          <td class="q">${r.qty} stick${r.qty !== 1 ? 's' : ''}</td>
-          <td class="a">K ${r.total.toFixed(2)}</td>
-          <td class="d">${r.date}</td>
-          <td class="d"><span class="paid-badge ${r.paid ? 'yes' : 'no'}">${r.paid ? 'PAID' : 'NOT PAID'}</span></td>
-        </tr>`).join('');
-    }
-
-    document.getElementById('stat-count').textContent = records.length;
-    document.getElementById('stat-sticks').textContent = records.reduce((a, r) => a + r.qty, 0);
-    document.getElementById('stat-total').textContent = records.reduce((a, r) => a + r.total, 0).toFixed(2);
-  }
-
-  function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-  let _tt;
-  function showToast(message = 'Sale approved and recorded!', isError = false) {
-    const t = document.getElementById('toast');
-    t.textContent = message;
-    t.style.background = isError ? 'var(--red)' : 'var(--green)';
-    t.classList.add('show');
-    clearTimeout(_tt);
-    _tt = setTimeout(() => t.classList.remove('show'), 2400);
   }
 
 /*  async function loadRecords() {
