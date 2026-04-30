@@ -1,0 +1,618 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Smokes on Credit</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #ffffff;
+      --surface:  #f5f5f5;
+      --surface2: #ebebeb;
+      --border:   #d0d0d0;
+      --amber:    #b87800;
+      --amber2:   #d4900a;
+      --cream:    #1a1a1a;
+      --muted:    #777777;
+      --red:      #c0392b;
+      --green:    #1a9e50;
+      --mono:     'Share Tech Mono', monospace;
+      --display:  'Bebas Neue', sans-serif;
+    }
+
+    html, body { height: 100%; background: var(--bg); color: var(--cream); font-family: var(--mono); font-size: 14px; }
+
+    .shell { max-width: 820px; margin: 0 auto; padding: 0 18px 80px; }
+
+    header {
+      padding: 26px 0 16px;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 28px;
+      display: flex; align-items: center; gap: 14px;
+    }
+    .hico { font-size: 44px; line-height: 1; }
+    .htitle h1 { font-family: var(--display); font-size: 36px; letter-spacing: 3px; color: var(--amber); line-height: 1; }
+    .htitle p  { font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
+    .hbadge {
+      margin-left: auto;
+      background: var(--surface2); border: 1px solid var(--border);
+      padding: 8px 16px; border-radius: 2px; text-align: right;
+    }
+    .hbadge .bl { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+    .hbadge .bv { font-size: 22px; font-family: var(--display); color: var(--amber); margin-top: 2px; }
+    .owner-link {
+      margin-left: 12px;
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--cream); text-decoration: none; font-size: 11px;
+      letter-spacing: 1px; text-transform: uppercase;
+      padding: 12px 14px; border-radius: 2px;
+    }
+    .owner-link:hover { border-color: var(--amber); color: var(--amber); }
+
+    .tabs {
+      display: flex; gap: 2px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 3px; padding: 3px; margin-bottom: 22px;
+    }
+    .tab-btn {
+      flex: 1; padding: 10px; background: none; border: none;
+      color: var(--muted); font-family: var(--mono); font-size: 11px;
+      letter-spacing: 2px; text-transform: uppercase; cursor: pointer;
+      border-radius: 2px; transition: background .15s, color .15s;
+    }
+    .tab-btn.active { background: var(--surface2); color: var(--amber); border: 1px solid var(--border); }
+    .tab-btn:hover:not(.active) { color: #111; }
+
+    .panel { display: none; animation: fadeUp .2s ease; }
+    .panel.active { display: block; }
+    @keyframes fadeUp { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 3px; padding: 26px 28px;
+    }
+    .card h2 { font-family: var(--display); font-size: 20px; letter-spacing: 1px; color: var(--amber); margin-bottom: 20px; }
+
+    .field { margin-bottom: 16px; }
+    .field label { display: block; font-size: 10px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    .field input, .field select {
+      width: 100%; background: var(--bg); border: 1px solid var(--border);
+      color: var(--cream); font-family: var(--mono); font-size: 15px;
+      padding: 11px 14px; border-radius: 2px; outline: none; transition: border-color .15s;
+    }
+    .field input:focus, .field select:focus { border-color: var(--amber); }
+    .field select option { background: var(--bg); }
+    .field input.err { border-color: var(--red) !important; }
+
+    .qty-row { display: flex; align-items: center; }
+    .qty-btn {
+      width: 44px; height: 44px; background: var(--surface2);
+      border: 1px solid var(--border); color: var(--cream); font-size: 22px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      transition: background .12s, color .12s; user-select: none;
+    }
+    .qty-btn:hover { background: var(--amber); color: #fff; }
+    #qty-input { flex: 1; text-align: center; border-left: none; border-right: none; border-radius: 0; font-size: 20px; font-weight: 600; }
+    .qty-btn:first-child { border-radius: 2px 0 0 2px; }
+    .qty-btn:last-child  { border-radius: 0 2px 2px 0; }
+
+    .total-bar {
+      display: flex; justify-content: space-between; align-items: center;
+      background: var(--bg); border: 1px solid var(--border); border-radius: 2px;
+      padding: 14px 16px; margin-top: 18px;
+    }
+    .total-bar .tl { color: var(--muted); font-size: 10px; letter-spacing: 2px; text-transform: uppercase; }
+    .total-bar .tv { color: var(--amber); font-size: 28px; font-family: var(--display); letter-spacing: 1px; }
+
+    .submit-btn {
+      width: 100%; margin-top: 16px; padding: 14px;
+      background: var(--amber); color: #fff; border: none;
+      font-family: var(--display); font-size: 20px; letter-spacing: 3px;
+      cursor: pointer; border-radius: 2px; transition: background .15s, transform .1s;
+    }
+    .submit-btn:hover { background: var(--amber2); }
+    .submit-btn:active { transform: scale(.98); }
+
+    #pin-overlay {
+      position: fixed; inset: 0; background: rgba(255,255,255,.88);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 500; backdrop-filter: blur(4px);
+      animation: fadeUp .2s ease;
+    }
+    #pin-overlay.hidden { display: none; }
+    .pin-box {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 4px; padding: 36px 40px; width: 360px; text-align: center;
+    }
+    .pin-box .lock-ico { font-size: 40px; margin-bottom: 10px; }
+    .pin-box h3 { font-family: var(--display); font-size: 24px; letter-spacing: 2px; color: var(--amber); margin-bottom: 4px; }
+    .pin-box p  { font-size: 11px; letter-spacing: 1px; color: var(--muted); margin-bottom: 22px; }
+    .pin-box .pending-info {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 2px;
+      padding: 10px 14px; margin-bottom: 18px; text-align: left;
+    }
+    .pin-box .pending-info .pi-name { font-size: 16px; color: var(--cream); }
+    .pin-box .pending-info .pi-detail { font-size: 11px; color: var(--muted); margin-top: 3px; }
+    .pin-box .pending-info .pi-total { font-size: 20px; font-family: var(--display); color: var(--amber); margin-top: 4px; }
+
+    #pin-input {
+      width: 100%; background: var(--bg); border: 1px solid var(--border);
+      color: var(--cream); font-family: var(--mono); font-size: 22px;
+      padding: 12px 16px; border-radius: 2px; outline: none;
+      text-align: center; letter-spacing: 6px; transition: border-color .15s;
+    }
+    #pin-input:focus { border-color: var(--amber); }
+    #pin-input.pin-err { border-color: var(--red); animation: shake .3s ease; }
+    @keyframes shake {
+      0%,100%{transform:translateX(0)} 20%{transform:translateX(-8px)} 60%{transform:translateX(8px)}
+    }
+    #pin-msg { font-size: 11px; min-height: 16px; margin-top: 8px; color: var(--red); }
+
+    .pin-btns { display: flex; gap: 8px; margin-top: 16px; }
+    .pin-cancel {
+      flex: 1; padding: 11px; background: none; border: 1px solid var(--border);
+      color: var(--muted); font-family: var(--mono); font-size: 12px;
+      letter-spacing: 1px; text-transform: uppercase; cursor: pointer;
+      border-radius: 2px; transition: border-color .12s, color .12s;
+    }
+    .pin-cancel:hover { border-color: var(--red); color: var(--red); }
+    .pin-approve {
+      flex: 2; padding: 11px; background: var(--amber); border: none;
+      color: #fff; font-family: var(--display); font-size: 18px;
+      letter-spacing: 2px; cursor: pointer; border-radius: 2px;
+      transition: background .12s;
+    }
+    .pin-approve:hover { background: var(--amber2); }
+
+    .rec-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+    .rec-header h2 { font-family: var(--display); font-size: 22px; letter-spacing: 1px; color: var(--amber); }
+
+    .stats-bar { display: grid; grid-template-columns: repeat(3,1fr); gap: 8px; margin-bottom: 18px; }
+    .stat-box { background: var(--surface); border: 1px solid var(--border); border-radius: 3px; padding: 12px 14px; }
+    .stat-box .sl { font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); }
+    .stat-box .sv { font-size: 20px; font-family: var(--display); color: var(--cream); margin-top: 3px; }
+    .stat-box .sv span { color: var(--amber); }
+
+    .search-wrap { position: relative; margin-bottom: 12px; }
+    .search-wrap input {
+      width: 100%; background: var(--surface); border: 1px solid var(--border);
+      color: var(--cream); font-family: var(--mono); font-size: 13px;
+      padding: 10px 14px 10px 36px; border-radius: 2px; outline: none; transition: border-color .15s;
+    }
+    .search-wrap input:focus { border-color: var(--amber); }
+    .search-wrap .sico { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+
+    .table-wrap { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    thead tr { background: var(--surface2); border-bottom: 1px solid var(--border); }
+    th { padding: 10px 14px; font-size: 9px; letter-spacing: 2px; text-transform: uppercase; color: var(--muted); text-align: left; white-space: nowrap; }
+    tbody tr { border-bottom: 1px solid var(--border); transition: background .12s; }
+    tbody tr:hover { background: var(--surface); }
+    td { padding: 12px 14px; font-size: 13px; }
+    td.n { color: var(--cream); font-weight: 600; }
+    td.q { color: var(--muted); }
+    td.a { color: var(--amber); font-weight: 600; }
+    td.d { color: var(--muted); font-size: 11px; }
+    td.x { text-align: right; }
+    .del-btn {
+      background: none; border: 1px solid transparent; color: var(--muted);
+      font-family: var(--mono); font-size: 12px; padding: 4px 8px;
+      cursor: pointer; border-radius: 2px; transition: border-color .12s, color .12s;
+    }
+    .del-btn:hover { border-color: var(--red); color: var(--red); }
+    .paid-badge {
+      font-size: 11px; font-weight: 700; letter-spacing: .4px;
+      padding: 3px 8px; border-radius: 99px; display: inline-block;
+    }
+    .paid-badge.yes { background: #dff4e8; color: #0d7a3a; }
+    .paid-badge.no { background: #fde9e7; color: #b43a2d; }
+
+    .empty-state { text-align: center; padding: 50px 20px; color: var(--muted); }
+    .empty-state .big { font-size: 44px; margin-bottom: 10px; }
+    .empty-state p { font-size: 11px; letter-spacing: 1px; }
+
+    .clear-btn {
+      background: none; border: 1px solid var(--border); color: var(--muted);
+      font-family: var(--mono); font-size: 10px; letter-spacing: 1px;
+      text-transform: uppercase; padding: 7px 14px; border-radius: 2px;
+      cursor: pointer; transition: border-color .12s, color .12s;
+    }
+    .clear-btn:hover { border-color: var(--red); color: var(--red); }
+
+    #toast {
+      position: fixed; bottom: 24px; right: 24px;
+      background: var(--green); color: #fff;
+      font-family: var(--mono); font-size: 13px;
+      padding: 12px 20px; border-radius: 3px;
+      opacity: 0; transform: translateY(10px);
+      transition: opacity .25s, transform .25s; z-index: 600;
+    }
+    #toast.show { opacity: 1; transform: none; }
+
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  </style>
+</head>
+<body>
+
+<div class="shell">
+  <header>
+    <div class="hico">&#128684;</div>
+    <div class="htitle">
+      <h1>Smokes on Credit</h1>
+      <p>Cigarette Credit Ledger</p>
+    </div>
+    <div class="hbadge">
+      <div class="bl">Price / stick</div>
+      <div class="bv">K 1.50</div>
+    </div>
+    <a class="owner-link" href="owner.html">Owner Page</a>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-btn-add" onclick="switchTab('add',this)">+ New Sale</button>
+    <button class="tab-btn" id="tab-btn-records" onclick="switchTab('records',this)">&#128196; Records</button>
+  </div>
+
+  <div id="panel-add" class="panel active">
+    <div class="card">
+      <h2>Fill in Your Details</h2>
+
+      <div class="field">
+        <label>Your Name</label>
+        <input type="text" id="cust-name" placeholder="Enter your full name..." autocomplete="off"/>
+      </div>
+
+      <div class="field">
+        <label>Quantity (sticks)</label>
+        <div class="qty-row">
+          <button type="button" class="qty-btn" id="qty-minus-btn" onclick="this.nextElementSibling.stepDown(); clampQty();">-</button>
+          <input type="number" id="qty-input" value="1" min="1" max="9999" oninput="onManualQtyInput()" onchange="clampQty()"/>
+          <button type="button" class="qty-btn" id="qty-plus-btn" onclick="this.previousElementSibling.stepUp(); clampQty();">+</button>
+        </div>
+      </div>
+
+      <div class="total-bar">
+        <span class="tl">Total Credit Owed</span>
+        <span class="tv" id="total-display">K 1.50</span>
+      </div>
+
+      <button class="submit-btn" onclick="requestApproval()">SUBMIT FOR APPROVAL</button>
+    </div>
+  </div>
+
+  <div id="panel-records" class="panel">
+    <div class="rec-header">
+      <h2>Credit Ledger</h2>
+    </div>
+
+    <div class="stats-bar">
+      <div class="stat-box">
+        <div class="sl">Transactions</div>
+        <div class="sv"><span id="stat-count">0</span></div>
+      </div>
+      <div class="stat-box">
+        <div class="sl">Sticks Sold</div>
+        <div class="sv"><span id="stat-sticks">0</span></div>
+      </div>
+      <div class="stat-box">
+        <div class="sl">Total Owed</div>
+        <div class="sv">K <span id="stat-total">0.00</span></div>
+      </div>
+    </div>
+
+    <div class="search-wrap">
+      <span class="sico">&#128269;</span>
+      <input type="text" id="search-input" placeholder="Search by customer name..." oninput="renderTable()"/>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Customer Name</th>
+            <th>Sticks</th>
+            <th>Amount Owed</th>
+            <th>Date &amp; Time</th>
+            <th>Payment</th>
+          </tr>
+        </thead>
+        <tbody id="records-body"></tbody>
+      </table>
+      <div id="empty-state" class="empty-state">
+        <div class="big">&#128203;</div>
+        <p>No records yet. Approve a sale to begin.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="pin-overlay" class="hidden">
+  <div class="pin-box">
+    <div class="lock-ico">&#128274;</div>
+    <h3>Owner Approval</h3>
+    <p>Enter the PIN to approve this sale</p>
+
+    <div class="pending-info">
+      <div class="pi-name" id="pin-cust-name">-</div>
+      <div class="pi-detail" id="pin-detail">-</div>
+      <div class="pi-total" id="pin-total">K 0.00</div>
+    </div>
+
+    <input type="password" id="pin-input" placeholder="Enter PIN" maxlength="20" oninput="clearPinErr()" onkeydown="if(event.key==='Enter')approvePin()"/>
+    <div id="pin-msg"></div>
+
+    <div class="pin-btns">
+      <button class="pin-cancel" onclick="closePin()">Cancel</button>
+      <button class="pin-approve" onclick="approvePin()">APPROVE</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast">Sale approved and recorded!</div>
+
+<script>
+  (function forceLiveTotalSync() {
+    const qtyInput = document.getElementById('qty-input');
+    const totalDisplay = document.getElementById('total-display');
+    const unitPrice = 1.5;
+    if (!qtyInput || !totalDisplay) return;
+
+    function draw() {
+      const qty = Math.max(1, parseInt(qtyInput.value, 10) || 1);
+      totalDisplay.textContent = 'K ' + (qty * unitPrice).toFixed(2);
+      window.requestAnimationFrame(draw);
+    }
+
+    draw();
+  })();
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  const PRICE  = 1.50;
+  const OWNER_PIN = 'FFMR5';
+  const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+  const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+  let supabase = null;
+
+  let records = [];
+  let pending = null;
+  let _lastQtySeen = null;
+
+  initQuantityUI();
+  updateTotal();
+  loadRecords();
+
+  function initQuantityUI() {
+    const qtyInput = document.getElementById('qty-input');
+    const minusBtn = document.getElementById('qty-minus-btn');
+    const plusBtn = document.getElementById('qty-plus-btn');
+
+    minusBtn.addEventListener('click', () => {
+      if (qtyInput.disabled) return;
+      qtyInput.value = Math.max(1, (parseInt(qtyInput.value, 10) || 1) - 1);
+      updateTotal();
+    });
+
+    plusBtn.addEventListener('click', () => {
+      if (qtyInput.disabled) return;
+      qtyInput.value = Math.max(1, (parseInt(qtyInput.value, 10) || 1) + 1);
+      updateTotal();
+    });
+
+    qtyInput.addEventListener('input', () => {
+      updateTotal();
+    });
+
+    qtyInput.addEventListener('change', () => {
+      clampQty();
+      updateTotal();
+    });
+
+    // Failsafe: keep total synced even if specific UI events are missed.
+    setInterval(syncTotalFromQty, 120);
+  }
+
+  function syncTotalFromQty() {
+    const qtyInput = document.getElementById('qty-input');
+    if (!qtyInput) return;
+    const now = String(qtyInput.value);
+    if (now === _lastQtySeen) return;
+    _lastQtySeen = now;
+    updateTotal();
+  }
+
+  function hasValidSupabaseConfig() {
+    return SUPABASE_URL && SUPABASE_ANON_KEY &&
+      SUPABASE_URL !== 'YOUR_SUPABASE_URL' &&
+      SUPABASE_ANON_KEY !== 'YOUR_SUPABASE_ANON_KEY';
+  }
+
+  function getSupabaseClient() {
+    if (supabase) return supabase;
+    if (!hasValidSupabaseConfig()) return null;
+    try {
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      return supabase;
+    } catch (_err) {
+      return null;
+    }
+  }
+
+  function switchTab(name, btn) {
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById('panel-' + name).classList.add('active');
+    btn.classList.add('active');
+    if (name === 'records') renderTable();
+  }
+
+  function getQty() { return Math.max(1, parseInt(document.getElementById('qty-input').value) || 1); }
+  function adjustQty(d) { document.getElementById('qty-input').value = Math.max(1, getQty() + d); updateTotal(); }
+  function setQty(v) { if (!v) return; document.getElementById('qty-input').value = parseInt(v); updateTotal(); }
+  function clampQty() { document.getElementById('qty-input').value = Math.max(1, parseInt(document.getElementById('qty-input').value) || 1); updateTotal(); }
+  function updateTotal() {
+    document.getElementById('total-display').textContent = 'K ' + (getQty() * PRICE).toFixed(2);
+  }
+  function onManualQtyInput() {
+    updateTotal();
+  }
+
+  function requestApproval() {
+    const name = document.getElementById('cust-name').value.trim();
+    const nameEl = document.getElementById('cust-name');
+    if (!name) {
+      nameEl.classList.add('err');
+      nameEl.focus();
+      setTimeout(() => nameEl.classList.remove('err'), 1400);
+      return;
+    }
+    const qty = getQty();
+    const total = +(qty * PRICE).toFixed(2);
+    pending = { name, qty, total };
+
+    document.getElementById('pin-cust-name').textContent = name;
+    document.getElementById('pin-detail').textContent = qty + ' stick' + (qty !== 1 ? 's' : '') + ' x K ' + PRICE.toFixed(2);
+    document.getElementById('pin-total').textContent = 'K ' + total.toFixed(2);
+    document.getElementById('pin-input').value = '';
+    document.getElementById('pin-msg').textContent = '';
+
+    document.getElementById('pin-overlay').classList.remove('hidden');
+    setTimeout(() => document.getElementById('pin-input').focus(), 80);
+  }
+
+  async function approvePin() {
+    const client = getSupabaseClient();
+    if (!client) {
+      document.getElementById('pin-msg').textContent = 'Set Supabase URL and key in index.html.';
+      return;
+    }
+    const entered = document.getElementById('pin-input').value;
+    if (entered === OWNER_PIN) {
+      const payload = {
+        customer_name: pending.name,
+        qty: pending.qty,
+        total: pending.total,
+        paid: false
+      };
+      const { data, error } = await client
+        .from('credit_records')
+        .insert(payload)
+        .select()
+        .single();
+      if (error) {
+        document.getElementById('pin-msg').textContent = 'Could not save to database.';
+        return;
+      }
+      records.unshift(normalizeRecord(data));
+
+      document.getElementById('cust-name').value = '';
+      document.getElementById('qty-input').value = 1;
+      updateTotal();
+
+      closePin();
+      showToast();
+      renderTable();
+    } else {
+      const inp = document.getElementById('pin-input');
+      inp.classList.add('pin-err');
+      document.getElementById('pin-msg').textContent = 'Incorrect PIN - try again.';
+      inp.value = '';
+      setTimeout(() => inp.classList.remove('pin-err'), 400);
+      inp.focus();
+    }
+  }
+
+  function closePin() {
+    document.getElementById('pin-overlay').classList.add('hidden');
+    pending = null;
+  }
+  function clearPinErr() { document.getElementById('pin-msg').textContent = ''; }
+
+  function renderTable() {
+    const q = (document.getElementById('search-input')?.value || '').toLowerCase();
+    const filtered = q ? records.filter(r => r.name.toLowerCase().includes(q)) : records;
+    const tbody = document.getElementById('records-body');
+    const empty = document.getElementById('empty-state');
+
+    if (filtered.length === 0) {
+      tbody.innerHTML = '';
+      empty.style.display = 'block';
+    } else {
+      empty.style.display = 'none';
+      tbody.innerHTML = filtered.map((r, i) => `
+        <tr>
+          <td class="d">${filtered.length - i}</td>
+          <td class="n">${esc(r.name)}</td>
+          <td class="q">${r.qty} stick${r.qty !== 1 ? 's' : ''}</td>
+          <td class="a">K ${r.total.toFixed(2)}</td>
+          <td class="d">${r.date}</td>
+          <td class="d"><span class="paid-badge ${r.paid ? 'yes' : 'no'}">${r.paid ? 'PAID' : 'NOT PAID'}</span></td>
+        </tr>`).join('');
+    }
+
+    document.getElementById('stat-count').textContent = records.length;
+    document.getElementById('stat-sticks').textContent = records.reduce((a, r) => a + r.qty, 0);
+    document.getElementById('stat-total').textContent = records.reduce((a, r) => a + r.total, 0).toFixed(2);
+  }
+
+  function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  let _tt;
+  function showToast(message = 'Sale approved and recorded!', isError = false) {
+    const t = document.getElementById('toast');
+    t.textContent = message;
+    t.style.background = isError ? 'var(--red)' : 'var(--green)';
+    t.classList.add('show');
+    clearTimeout(_tt);
+    _tt = setTimeout(() => t.classList.remove('show'), 2400);
+  }
+
+  async function loadRecords() {
+    const client = getSupabaseClient();
+    if (!client) {
+      records = [];
+      renderTable();
+      return;
+    }
+    const { data, error } = await client
+      .from('credit_records')
+      .select('id, customer_name, qty, total, paid, created_at')
+      .order('created_at', { ascending: false });
+    if (error) {
+      showToast('Database connection failed. Check Supabase keys.', true);
+      records = [];
+      renderTable();
+      return;
+    }
+    records = (data || []).map(normalizeRecord);
+    renderTable();
+  }
+
+  function normalizeRecord(row) {
+    const created = row.created_at ? new Date(row.created_at) : new Date();
+    return {
+      id: row.id,
+      name: row.customer_name,
+      qty: Number(row.qty) || 0,
+      total: Number(row.total) || 0,
+      paid: Boolean(row.paid),
+      date: created.toLocaleString('en-PG', {
+        day: '2-digit', month: 'short', year: 'numeric',
+        hour: '2-digit', minute: '2-digit'
+      })
+    };
+  }
+
+  document.getElementById('pin-overlay').addEventListener('click', function(e) {
+    if (e.target === this) closePin();
+  });
+
+</script>
+</body>
+</html>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Owner Panel - Smokes on Credit</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Share+Tech+Mono&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:#ffffff; --surface:#f5f5f5; --surface2:#ebebeb; --border:#d0d0d0;
+      --amber:#b87800; --amber2:#d4900a; --cream:#1a1a1a; --muted:#777777;
+      --red:#c0392b; --green:#1a9e50; --mono:'Share Tech Mono', monospace; --display:'Bebas Neue', sans-serif;
+    }
+    body { background: var(--bg); color: var(--cream); font-family: var(--mono); padding: 20px; }
+    .shell { max-width: 980px; margin: 0 auto; }
+    .top { display:flex; align-items:center; gap:12px; border-bottom:1px solid var(--border); padding-bottom:14px; margin-bottom:16px; }
+    .top h1 { font-family: var(--display); letter-spacing: 2px; color: var(--amber); }
+    .back { margin-left:auto; text-decoration:none; color:var(--muted); border:1px solid var(--border); padding:8px 12px; border-radius:2px; text-transform:uppercase; font-size:11px; }
+    .back:hover { color: var(--amber); border-color: var(--amber); }
+    .auth { display:flex; gap:8px; margin-bottom:14px; }
+    .auth input { flex:1; min-width:0; padding:10px; border:1px solid var(--border); border-radius:2px; font-family: var(--mono); }
+    .auth button { padding:10px 12px; border:none; background:var(--amber); color:#fff; border-radius:2px; cursor:pointer; text-transform:uppercase; font-size:11px; }
+    .auth button.alt { background: var(--surface2); color: var(--cream); border:1px solid var(--border); }
+    .status { font-size:12px; color: var(--muted); margin-bottom:12px; }
+    .filters { display:flex; gap:8px; margin-bottom:12px; }
+    .filters button {
+      padding:7px 10px; border:1px solid var(--border); background:#fff;
+      border-radius:2px; cursor:pointer; font-size:11px; text-transform:uppercase;
+    }
+    .filters button.active { border-color: var(--amber); color: var(--amber); }
+    table { width:100%; border-collapse: collapse; }
+    th, td { border-bottom:1px solid var(--border); padding:10px; text-align:left; }
+    th { background: var(--surface2); font-size:10px; text-transform:uppercase; letter-spacing:1.4px; color:var(--muted); }
+    .badge { font-size:11px; font-weight:700; padding:3px 8px; border-radius:99px; display:inline-block; }
+    .paid { background:#dff4e8; color:#0d7a3a; }
+    .notpaid { background:#fde9e7; color:#b43a2d; }
+    .act { display:flex; gap:6px; }
+    .act button { padding:6px 8px; border:1px solid var(--border); background:#fff; border-radius:2px; cursor:pointer; font-size:11px; }
+    .act button:hover { border-color: var(--amber); color: var(--amber); }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="top">
+      <h1>Owner Panel</h1>
+      <a class="back" href="index.html">Back to Main</a>
+    </div>
+
+    <div class="auth">
+      <input type="text" id="username" placeholder="username (kila, clyde, francis)"/>
+      <input type="password" id="password" placeholder="password"/>
+      <button onclick="signIn()">Sign In</button>
+      <button class="alt" onclick="signOut()">Sign Out</button>
+    </div>
+    <div class="status" id="status">Sign in as owner to manage paid status.</div>
+    <div class="filters">
+      <button id="filter-all" class="active" onclick="setFilter('all')">All</button>
+      <button id="filter-paid" onclick="setFilter('paid')">Paid</button>
+      <button id="filter-unpaid" onclick="setFilter('unpaid')">Not Paid</button>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Customer</th>
+          <th>Sticks</th>
+          <th>Total</th>
+          <th>Payment</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script>
+    const SUPABASE_URL = 'YOUR_SUPABASE_URL';
+    const SUPABASE_ANON_KEY = 'YOUR_SUPABASE_ANON_KEY';
+    const owners = {
+      kila: 'kila@owners.local',
+      clyde: 'clyde@owners.local',
+      francis: 'francis@owners.local'
+    };
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    let currentUser = null;
+    let records = [];
+    let currentFilter = 'all';
+
+    init();
+
+    async function init() {
+      const { data } = await supabase.auth.getSession();
+      currentUser = data.session ? data.session.user : null;
+      updateStatus();
+      await loadRecords();
+      supabase.auth.onAuthStateChange((_evt, session) => {
+        currentUser = session ? session.user : null;
+        updateStatus();
+      });
+    }
+
+    function updateStatus() {
+      const el = document.getElementById('status');
+      if (!currentUser) {
+        el.textContent = 'Sign in as owner to manage paid status.';
+      } else {
+        el.textContent = 'Signed in as ' + currentUser.email;
+      }
+    }
+
+    async function signIn() {
+      const username = document.getElementById('username').value.trim().toLowerCase();
+      const password = document.getElementById('password').value;
+      const email = owners[username];
+      if (!email || !password) return alert('Use username kila, clyde, or francis with password FFMR5.');
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) return alert('Sign in failed.');
+      document.getElementById('password').value = '';
+    }
+
+    async function signOut() {
+      await supabase.auth.signOut();
+    }
+
+    async function loadRecords() {
+      const { data } = await supabase
+        .from('credit_records')
+        .select('id, customer_name, qty, total, paid, created_at')
+        .order('created_at', { ascending: false });
+      records = data || [];
+      render();
+    }
+
+    function render() {
+      const tbody = document.getElementById('rows');
+      const shown = records.filter(r => {
+        if (currentFilter === 'paid') return Boolean(r.paid);
+        if (currentFilter === 'unpaid') return !Boolean(r.paid);
+        return true;
+      });
+      tbody.innerHTML = shown.map(r => `
+        <tr>
+          <td>${esc(r.customer_name)}</td>
+          <td>${r.qty}</td>
+          <td>K ${Number(r.total).toFixed(2)}</td>
+          <td><span class="badge ${r.paid ? 'paid' : 'notpaid'}">${r.paid ? 'PAID' : 'NOT PAID'}</span></td>
+          <td class="act">
+            <button onclick="setPaid('${r.id}', true)">Mark Paid</button>
+            <button onclick="setPaid('${r.id}', false)">Mark Not Paid</button>
+          </td>
+        </tr>
+      `).join('');
+      if (!shown.length) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="5">No records in this filter.</td>
+          </tr>
+        `;
+      }
+    }
+
+    function setFilter(filter) {
+      currentFilter = filter;
+      document.getElementById('filter-all').classList.toggle('active', filter === 'all');
+      document.getElementById('filter-paid').classList.toggle('active', filter === 'paid');
+      document.getElementById('filter-unpaid').classList.toggle('active', filter === 'unpaid');
+      render();
+    }
+
+    async function setPaid(id, paid) {
+      if (!currentUser) return alert('Please sign in first.');
+      const { error } = await supabase
+        .from('credit_records')
+        .update({ paid })
+        .eq('id', id);
+      if (error) return alert('Update failed.');
+      await loadRecords();
+    }
+
+    function esc(s) {
+      return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+  </script>
+</body>
+</html>
